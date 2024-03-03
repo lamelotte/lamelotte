@@ -142,7 +142,9 @@ wb.save("commentsdata.xlsx")
 print("your final data is saved as excel")
 ```
 
-![Picture showing Powell]({static}/images/group-Fintech-Disruption_Powell.jpeg)
+Now the data we need is saved in the excel file, the format is as follows:   
+
+![Picture showing Powell](header.png)
 
 
 ## About Selenium
