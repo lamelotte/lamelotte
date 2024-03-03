@@ -1,5 +1,5 @@
 ---
-Title: Use Selenium to webscrape Yahoo Finance -- by "Coding Master"
+Title: Use Selenium to webscrape Yahoo Finance Conversation Page
 Date: 2024-03-03 19:00
 Category: Progress Report
 Tags: Group Coding Master
@@ -7,7 +7,7 @@ Tags: Group Coding Master
 
 By Group "Coding Master"
 
-The discussion page of Yahoo Finance provides a platform for investors to share their opinions and insights about stocks and other financial instruments. It is a community-driven forum where users can ask questions, share their experiences and learn from other investors.  
+The conversation page of Yahoo Finance provides a platform for investors to share their opinions and insights about stocks and other financial instruments. It is a community-driven forum where users can ask questions, share their experiences and learn from other investors.  
 
 In this blog, we aim to crawl the comment data by using Selenium library to simulate browser actions and using the Chrome browser driver for automation. 
 
@@ -141,6 +141,9 @@ for li in list_items:#tqdm(list_items, desc="Processing messages")
 wb.save("commentsdata.xlsx")
 print("your final data is saved as excel")
 ```
+
+![Picture showing Powell]({static}/images/group-Fintech-Disruption_Powell.jpeg)
+
 
 ## About Selenium
 
