@@ -176,10 +176,10 @@ The prediction accuracy under different intense comments criterion is shown belo
 
 ![Picture showing Powell](heatmap.png)
 
-We choose the optimal model of different stocks and the prediction accuracy is shown below. We can see that the performance of the model changes greatly among different stocks. 
+We choose the optimal model of different stocks and the prediction accuracy is shown below:    
 
 ![Picture showing Powell](optimal.png)
-
+We can see that the performance of the model changes greatly among different stocks.
 
 ## Conclusion
 In summary, the model is only suitable for some stocks and there are still a lot we can do to further improve our model. It is necessary to test its effectiveness before using it for a particular stock. 
