@@ -124,6 +124,20 @@ for stock in stock_sequence:
                 y.append(labels[stock][i])
 ```
 
+## About BP neural network
+
+The back propagation (BP) neural network algorithm is a multi-layer feedforward network trained according to error back propagation algorithm and is one of the most widely applied neural network models. BP network can be used to learn and store a great deal of mapping relations of input-output model, and no need to disclose in advance the mathematical equation that describes these mapping relations. Its learning rule is to adopt the steepest descent method in which the back propagation is used to regulate the weight value and threshold value of the network to achieve the minimum error sum of square. 
+
+![Picture showing Powell](BP.png)
+
+The BP learning process can be described as follows:
+
+### Forward propagation of operating signal
+The input signal is propagated from the input layer, via the hide layer, to the output layer. During the forward propagation of operating signal, the weight value and offset value of the network are maintained constant and the status of each layer of neuron will only exert an effect on that of next layer of neuron. In case that the expected output can not be achieved in the output layer, it can be switched into the back propagation of error signal. 
+
+### Back propagation of error signal: 
+The difference between the real output and expect output of the network is defined as the error signal; in the back propagation of error signal, the error signal is propagated from the output end to the input layer in a layer-by-layer manner. During the back propagation of error signal, the weight value of network is regulated by the error feedback. The continuous modification of weight value and offset value is applied to make the real output of network more closer to the expected one.
+
 ## Model training
 
 we use the basic BP neural network model to train and predict the trend of volatility and calculate the prediction accuracy. we first split the data set into a training set and a test set, randomly choosing 20% of the total data as testing sample. Next, we construct the neural network with 5 layers in total. These layers are configured to build a neural network structure with 2-128-256-256-128-1. The model uses MSE as a loss function, adam as an optimizer, and accuracy as an evaluation index. We use previous day's emotion index and volatility as inputs, and use the volatility trend index as output. After the training is complete, we use the test set to evaluate its effectiveness and record the prediction accuracy.   
@@ -166,21 +180,6 @@ We choose the optimal model of different stocks and the prediction accuracy is s
 
 ![Picture showing Powell](optimal.png)
 
-
-
-## About BP neural network
-
-The back propagation (BP) neural network algorithm is a multi-layer feedforward network trained according to error back propagation algorithm and is one of the most widely applied neural network models. BP network can be used to learn and store a great deal of mapping relations of input-output model, and no need to disclose in advance the mathematical equation that describes these mapping relations. Its learning rule is to adopt the steepest descent method in which the back propagation is used to regulate the weight value and threshold value of the network to achieve the minimum error sum of square. 
-
-![Picture showing Powell](BP.png)
-
-The BP learning process can be described as follows:
-
-### Forward propagation of operating signal
-The input signal is propagated from the input layer, via the hide layer, to the output layer. During the forward propagation of operating signal, the weight value and offset value of the network are maintained constant and the status of each layer of neuron will only exert an effect on that of next layer of neuron. In case that the expected output can not be achieved in the output layer, it can be switched into the back propagation of error signal. 
-
-### Back propagation of error signal: 
-The difference between the real output and expect output of the network is defined as the error signal; in the back propagation of error signal, the error signal is propagated from the output end to the input layer in a layer-by-layer manner. During the back propagation of error signal, the weight value of network is regulated by the error feedback. The continuous modification of weight value and offset value is applied to make the real output of network more closer to the expected one.
 
 ## Conclusion
 In summary, the model is only suitable for some stocks and there are still a lot we can do to further improve our model. It is necessary to test its effectiveness before using it for a particular stock. 
