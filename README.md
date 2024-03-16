@@ -1,201 +1,187 @@
 ---
-Title: Use Selenium to webscrape Yahoo Finance Conversation Page
-Date: 2024-03-03 19:00
+Title: Model Construction with sentiment score to predict volatility movement
+Date: 2024-03-16 19:00
 Category: Progress Report
 Tags: Group Coding Master
 ---
 
 By Group "Coding Master"
 
-The conversation page of Yahoo Finance provides a platform for investors to share their opinions and insights about stocks and other financial instruments. It is a community-driven forum where users can ask questions, share their experiences and learn from other investors.  
-
-In this blog, we aim to crawl the comment data by using Selenium library to simulate browser actions and using the Chrome browser driver for automation. 
+In this blog, we aim to forecast the trend of volatility based on comments on Yahoo Finance. This blog is mainly about how we process sentiment scores and how we fit our model to derive the optimal model with higher predicted accuracy. 
 
 ## Import libraries
 
 ```python
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.options import Options
-from openpyxl import Workbook
-import time
+import pandas as pd
+import numpy as np
+import math
+import warnings
+from sklearn.model_selection import train_test_split
+from keras import Sequential
+from keras.layers import Dense, Dropout
 ```
+## Calculate volatility trend index
 
+In this step, we create a dataframe called 'label' to store volatility trend index, the columns is stock ticket and the index is date. Here we make a definition:    
 
-## Initialize the browser driver
-
-In this step, we use openpyxl library to create a new Excel to store the comment data. 
-By adding several option arguments to the Chrome browser driver, we can ignore SSL errors and certificate errors.   
-
-In order to avoid data missing, we set a time sleep function of 10 seconds to make sure that the page is fully loaded.
+Volatility Trend Index = 1 if $\frac{Chg_{T}}{Chg_{T-1}} \geq 1$ otherwise = 0, $Chg_{T}$ refers to the price change at time T.
 
 ```python
-# intialize Excel
-wb = Workbook()
-ws = wb.active
-ws.title = "running"
+#create DataFrame to save sample labels for every stock in every day
+labels=pd.DataFrame(columns=['time']+stock_sequence)
+data=[]
+#date_index to save sample dates for every day
+date_index=[]
+for i in range(len(stock_sequence)):
+    data.append(pd.read_excel(stock_sequence[i]+".xlsx"))
+    for j in data[i]['日期']:
+        if j not in date_index:
+            date_index.append(j)
+for k in range(4):
+    del date_index[-1]
 
-options = Options()
-options.add_argument('--ignore-ssl-errors=yes')
-options.add_argument('--ignore-certificate-errors')
-chrome_driver_path = ".\chromedriver-win64\chromedriver.exe"
-service = Service(executable_path=chrome_driver_path)
-service.log_path = 'NUL' 
-service.verbose = False
-driver = webdriver.Chrome(service=service, options=options)
-# driver = webdriver.Chrome('./chromedriver-win64/chromedriver.exe')
-driver.get(web)
-time.sleep(10)
+for i in range(len(date_index)):
+    popin=[date_index[i]]
+    for j in range(len(stock_sequence)):
+        if abs(data[j]['涨跌幅'][i+1])/abs(data[j]['涨跌幅'][i])>=1:
+            popin.append(1)
+        else:
+            popin.append(0)
+
+
+    labels.loc[labels.shape[0]]=popin
 ```
 
-## Automate browser action to "Show More Comments"
+## Load sentiment scores
 
-We firstly locate the iframe element which contains the comments in the webpage and then locate the comment list and the “Show More Comments” button in the iframe. By using shadow DOM and list elements, we can easily traverse and extract all comment data.  
+In this step, we create a dataframe of list called 'sample', the columns is stock ticket and the indexe is date. Each list of a stock in each day contains sentiment scores of all comments that day related.    
 
-To avoid getting only part of the comments that were initially displayed, we dynamically load more comments by simulating to click the button until the specified maximum number of attempts is reached or there are no more comments to load.  
+However, there are a few comments that were made on weekends or holidays. Because the market is closed and we can't get stock data on these days, it seems that these comments is useless. Here We do some basic process: for the comments posted on weekends or holidays, we set the date of these comments as the next workday. 
 
 
 ```python
-outerBond = driver.find_element(By.ID,'spotIm-conversations-module-wrapper')
-iframe = outerBond.find_element(By.TAG_NAME,'iframe')
-driver.switch_to.frame(iframe)
-# spotim_specific = driver.find_element(By.ID, 'spotim-specific')
-host_parent = driver.find_element(By.CSS_SELECTOR, '[data-spot-im-module-default-area="conversation"]')
-shadow_host = host_parent.find_element(By.CSS_SELECTOR, "div:first-child")
-shadow_root = driver.execute_script('return arguments[0].shadowRoot', shadow_host)
+#create DataFrame to save sample scores for every stock in every day
+#use samples[stock][date][i] to get the ith comment score
+samples=pd.DataFrame(columns=['time']+stock_sequence)
+for j in date_index:
+    popin=[j]
+    for i in stock_sequence:
+        popin.append([])
+    samples.loc[samples.shape[0]]=popin
+#set date as index
+samples.set_index('time',inplace=True)
+
+for i in range(len(stock_sequence)):
+    score=pd.read_excel(stock_sequence[i]+"_scored.xlsx")
+    #Change the date of the comments to workdays.
+    for j in range(score.shape[0]):
+        if score['date'][j] not in date_index and score['date'][j]>date_index[0] and score['date'][j]<date_index[-1]:
+            for kk in date_index:
+                if kk-score['date'][j]>kk-kk:
+                    score['date'][j]=kk
+                    break
+
+    for j in range(score.shape[0]):
+        if score['date'][j] in date_index:
+            samples[stock_sequence[i]][score['date'][j]].append(score['polarity'][j])
+```
         
-spcv_messages_list = shadow_root.find_element(By.CLASS_NAME,'spcv_messages-list')
-list_items = spcv_messages_list.find_elements(By.TAG_NAME, 'li')
-load_message_parent = shadow_root.find_element(By.CLASS_NAME,'spcv_loadMoreCommentsContainer')
-```
-
-  
-Here we use the While loop and counters to control the number of attempts to load comments, the followings are the benefits:   
-
-a. Prevent too many loops: we use a loop to click the "Show more comments" button, but set a limit on the maximum number of attempts to prevent infinite loops, thus avoiding the situation where the code gets stuck in an endless loop.  
-b. Fault tolerant processing: we use the try-except statement to deal with the exception case that the element cannot be found, so as to exit the loop in time when the button cannot be found, and output the corresponding prompt message.
 
 
-```python       
-counter = 0
-while counter < max_attempts:
-    try:
-        more_replies_button = load_message_parent.find_element(By.CSS_SELECTOR, "button[data-spot-im-class='load-more-messages']")
-        driver.execute_script("arguments[0].click();", more_replies_button)
-        time.sleep(10)
-        counter += 1
-    except:
-        print("loading completed")
-        break
-```
+## Calculate emotion index
 
+As our goal is to predict the trend of volatility, it is better to mainly focus on how intense people feel about the stock instead of how positive people's comments are.
 
-## Iterate all the comments and write to Excel
+The main function of this code is to calculate the emotion index according to the different intense comment criteria. As the criteria for minimum standard of intense sentiment score is hard to decide casually, we first define a set of possible strong comment criteria (prop) and find the best one through training results. Under each criterion, we traverse the date and calculate the emotion index based on the sentiment score. **We define the emotion index as the ratio of the number of intense comments to the total number of comments on each date.**
 
-We iterate through all the comments, and for each comment we do the follwing works:  
-a.  Keep trying to click the "Show more replies" button until there are no more replies to expand.   
-b.  Extract the text and date from the comment.   
-c.  Save the extracted text and date in the corresponding row of the Excel worksheet.     
-
-Finally we derive an Excel file which contains all the scraped comments.
+It is worth noting that we also handles some exceptions, such as setting the emotion index to 0.1 when it is 0 to avoid potential errors.
 
 ```python
-row = 1
-for li in list_items:#tqdm(list_items, desc="Processing messages")
-    try:
-        while True:
-            try:
-                more_replies_button = li.find_element(By.CSS_SELECTOR, "button[aria-label='Show more replies']")
-                driver.execute_script("arguments[0].click();", more_replies_button)
-                time.sleep(10)
-                print("open a fold")
-            except:
-                print("nothing remained")
-                break
-                
-        time.sleep(10)
-        all_message_views = li.find_elements(By.CLASS_NAME, 'components-MessageLayout-index__message-view')
-        for main_parent in all_message_views:
-            text_elements = main_parent.find_elements(By.CSS_SELECTOR, 'p, div[data-spot-im-class="message-text"]')
-            combined_text = ' '
-            for element in text_elements:
-                if element.tag_name == 'p' or (element.get_attribute('data-edited-text') and element.get_attribute('data-edited-text') == "(Edited)"):
-                    combined_text += element.text + " "
-                        
-            if not combined_text:
-                div_elements = main_parent.find_elements(By.CSS_SELECTOR, 'div[data-spot-im-class="message-text"][data-edited-text="(Edited)"]')
-                combined_text = ' '.join([div.text for div in div_elements])
-            main_date = main_parent.find_element(By.TAG_NAME, 'time').text
-                    
-            ws[f'A{row}'] = main_date
-            ws[f'B{row}'] = combined_text.strip()
-            row += 1
-        wb.save("commentsdata.xlsx")
-        print("document is saved",row,"row data")
-    except Exception as e:
-        print("li error", e)
-wb.save("commentsdata.xlsx")
-print("your final data is saved as excel")
+#prop saves some criteria for intense comments
+prop=[0.3,0.4,0.5,0.6,0.7,0.8]
+for stock in stock_sequence:
+    for propp in prop:
+        x=[]
+        y=[]
+        #making samples for every possible criteria
+        for i in date_index[1:-1]:
+            get_index=date_index.index(i)
+            if samples[stock][i]!=[] and samples[stock][date_index[get_index-1]]!=[]:
+                xi=0
+                xi1=0
+                for kk in samples[stock][i]:
+                    if abs(kk)>propp:
+                        xi+=1
+                for kk in samples[stock][date_index[get_index-1]]:
+                    if abs(kk)>propp:
+                        xi1+=1
+                ei=xi/len(samples[stock][i])
+                ei1=xi1/len(samples[stock][date_index[get_index-1]])
+                if ei1==0:
+                    ei1=0.1
+
+                x.append([ei/ei1,1/abs(data[stock_sequence.index(stock)]['涨跌幅'][date_index[get_index-1]])*abs(data[stock_sequence.index(stock)]['涨跌幅'][i])])
+                y.append(labels[stock][i])
 ```
 
-Now the data we need is saved in the excel file, the format is as follows:   
+## Model training
 
-![Picture showing Powell](header.png)
+we use the basic BP neural network model to train and predict the trend of volatility and calculate the prediction accuracy. we first split the data set into a training set and a test set, randomly choosing 20% of the total data as testing sample. Next, we construct the neural network with 5 layers in total. These layers are configured to build a neural network structure with 2-128-256-256-128-1. The model uses MSE as a loss function, adam as an optimizer, and accuracy as an evaluation index. We use previous day's emotion index and volatility as inputs, and use the volatility trend index as output. After the training is complete, we use the test set to evaluate its effectiveness and record the prediction accuracy.   
 
-
-## About Selenium
-
-Selenium is a powerful, flexible and easy-to-use library for a variety of web automation and data scraping scenarios, 
-providing a wealth of features and tools to help developers more efficiently manipulate and control the browser and get the data they need.   
-
-### Browser automation
-Selenium allows users to simulate the operation in the browser, which can automatically open web pages, click buttons, fill in forms, etc., so as to achieve automated web access and interaction.
+Besides from adding Dense layer, we add Dropout layers after each Dense layer to randomly drop a portion of neurons to prevent overfitting.
 
 ```python
-driver = webdriver.Chrome(service=service, options=options)
-# driver = webdriver.Chrome('./chromedriver-win64/chromedriver.exe')
-driver.get(web)
-```
-or
+train_x, test_x, train_y, test_y = train_test_split(x, y, test_size=0.2)
+model = Sequential()
+model.add(Dense(128,activation='relu',input_shape=(2,)))
+model.add(Dropout(0.3))
+model.add(Dense(256,activation='relu'))
+model.add(Dropout(0.3))
+model.add(Dense(256,activation='relu'))
+model.add(Dropout(0.3))
+model.add(Dense(128,activation='relu'))
+model.add(Dropout(0.3))
+model.add(Dense(1))
+model.compile(loss='mse', optimizer='adam',metrics=['accuracy'])
+history = model.fit(train_x, train_y, epochs=200, batch_size=20,validation_data=(test_x, test_y),shuffle=True, verbose=0)
+score = model.predict(test_x)
+sum11 = 0
+for kkk in range(len(score)):
+    if score[kkk]>=0.5:
+       flag=1
+    else:
+       flag=0
+    if flag==test_y[kkk]:
+       sum11+=1
+print(propp,stock,str(sum11/len(score)*100)+'%')
 
-```python
-driver.execute_script("arguments[0].click();", more_replies_button)
-```
-### Powerful element positioning capabilities
-Selenium provides a variety of element positioning methods, such as ID, CSS selector, tag name, class name etc., to accurately locate and operate elements in web pages, facilitating data capture and interaction.
-
-```python
-outerBond = driver.find_element(By.ID,'spotIm-conversations-module-wrapper')
-
-iframe = outerBond.find_element(By.TAG_NAME,'iframe')
-
-shadow_host = host_parent.find_element(By.CSS_SELECTOR, "div:first-child")
-
-spcv_messages_list = shadow_root.find_element(By.CLASS_NAME,'spcv_messages-list')
-```
-### Handling JavaScript rendering
-Selenium can wait for the page to be fully loaded and rendered before proceeding to ensure that the full page content and dynamically generated data are obtained.
-This avoids the problem of element positioning errors or missing data because the page is not fully loaded.
-
-```python
-time.sleep(10)
+save_final.loc[len(save_final)]=[propp,stock,sum11/len(score)]
 ```
 
-Specially, the use of Selenium allows the scraper to interact with dynamic web elements, such as loading more comments and expanding replies, which might not be possible with traditional scraping libraries like Beautiful Soup or Scrapy. 
-This makes it more effective in obtaining a larger number of comments from the discussion pages.
+The prediction accuracy under different intense comments criterion is shown below:   
 
-## Further Improvements
-Some possible improvements or extensions to the program could include:   
-a. Adding error handling and retry mechanisms to handle network issues or temporary failures, making the scraper more robust and reliable.  
-b. Implementing pagination to navigate through multiple pages of comments, allowing the scraper to collect even more data.    
-c. Providing options for the user to filter or sort the comments based on certain criteria, such as date, popularity, or content.   
-d. Adapting the scraper to work with other websites or platforms, making it more versatile and useful for different purposes.
+![Picture showing Powell](heatmap.png)
+
+We choose the optimal model of different stocks and the prediction accuracy is shown below. We can see that the performance of the model changes greatly among different stocks. 
+
+![Picture showing Powell](optimal.png)
+
+
+
+## About BP neural network
+
+The back propagation (BP) neural network algorithm is a multi-layer feedforward network trained according to error back propagation algorithm and is one of the most widely applied neural network models. BP network can be used to learn and store a great deal of mapping relations of input-output model, and no need to disclose in advance the mathematical equation that describes these mapping relations. Its learning rule is to adopt the steepest descent method in which the back propagation is used to regulate the weight value and threshold value of the network to achieve the minimum error sum of square. 
+
+![Picture showing Powell](BP.png)
+
+The BP learning process can be described as follows:
+
+### Forward propagation of operating signal
+The input signal is propagated from the input layer, via the hide layer, to the output layer. During the forward propagation of operating signal, the weight value and offset value of the network are maintained constant and the status of each layer of neuron will only exert an effect on that of next layer of neuron. In case that the expected output can not be achieved in the output layer, it can be switched into the back propagation of error signal. 
+
+### Back propagation of error signal: 
+The difference between the real output and expect output of the network is defined as the error signal; in the back propagation of error signal, the error signal is propagated from the output end to the input layer in a layer-by-layer manner. During the back propagation of error signal, the weight value of network is regulated by the error feedback. The continuous modification of weight value and offset value is applied to make the real output of network more closer to the expected one.
 
 ## Conclusion
-In summary, this code is a web scraper program that scrapes comments from Yahoo Finance stock discussion pages and saves them to an Excel file. 
-With further enhancements, it can become an even more powerful tool for users interested in analyzing market sentiment and gathering insights from investor discussions.
+In summary, the model is only suitable for some stocks and there are still a lot we can do to further improve our model. It is necessary to test its effectiveness before using it for a particular stock. 
 
