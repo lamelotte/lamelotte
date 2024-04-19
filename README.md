@@ -1,6 +1,7 @@
 # SQL
 
-## Consecutive numbers   
+## Consecutive numbers  
+In all questions about consecutive number, their solution can be concluded to that: using **id - row_number()** as signal to group each consecutive numbers.
 Import table: Logs
 | id | num |
 |-------|-------|
