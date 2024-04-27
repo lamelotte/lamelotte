@@ -29,3 +29,20 @@ ROW_NUMBER() over(partition by Num order by Id) as SerialNumberSubGroup
 FROM ContinueNumber) as Sub
 GROUP BY Num,SerialNumberSubGroup HAVING COUNT(1) >= 3) as Result
 ```
+
+## Recursive table
+
+```python
+WITH CTE AS ( 
+ SELECT UserID,ManagerID,Name,Name AS ManagerName 
+ FROM dbo.Employee 
+ WHERE ManagerID=-1 
+ UNION ALL 
+ SELECT c.UserID,c.ManagerID,c.Name,p.Name AS ManagerName 
+ FROM CTE P 
+ INNER JOIN dbo.Employee c ON p.UserID=c.ManagerID 
+) 
+ 
+SELECT UserID,ManagerID,Name,ManagerName 
+FROM CTE
+```
